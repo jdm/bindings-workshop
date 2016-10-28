@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Optimizing Open Source Projects for Contribution</title>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="shower/themes/ribbon/styles/screen-16x10.css">
+        <!--<link rel="stylesheet" href="moz.css">-->
+        <!--<link rel="stylesheet" href="shower/themes/mozilla/styles/style.css">-->
+        <style>
+          code {
+              white-space: pre;
+          }
+
+          .slide {
+              padding-top: 53px;
+          }
+
+          table.dual td:last-child {
+              padding-right: 0px;
+          }
+        </style>
+</head>
+<body class="shower list">
+	<header class="caption">
+		<h1>Optimizing Open Source Projects for Contribution</h1>
+		<p>Josh Matthews, <a href="http://twitter.com/lastontheboat">@lastontheboat</a>
+</p>
+	</header>
+	<section class="slide" id="cover">
+	  <h2>...And In the Darkness Bind Them:</h2><br><br><br><br><br><br>
+          <h2>Fluent Rust Bindings for C APIs</h2>
+		<div class="byline"><strong>Josh Matthews</strong>, @lastontheboat</div>
+		<img src="pictures/One_Ring_To_Rule_Them_All.png" alt="" class="cover">
+		<!--
+			To apply styles to the certain slides
+			set slide ID to get needed elements
+			-->
+		<style>
+                  #cover {
+                      background-color: black;
+                  }
+		  #cover h2 {
+		      margin:30px 0 0;
+                      color:#FFF;
+                      text-align:center;
+                      font-size:65px;
+                      sbackground: rgba(0,0,0,0.6);
+                  }
+                  #cover p {
+                      margin:10px 0 0;
+                      text-align:center;
+	              color:#FFF;
+                      font-style:italic;
+                      font-size:20px;
+                  }
+                  #cover p a {
+                      color:#FFF;
+                  }
+                  #cover img {
+                      width: 100%;
+                      filter: opacity(0.8);
+                      -webkit-filter: opacity(0.8);
+                  }
+                  .byline {
+                      text-align: right;
+                      position: absolute;
+                      bottom: 10px;
+                      right: 10px;
+                      color:#FFF;
+                  }
+		</style>
+	</section>
+
+	<section class="slide">
+	  <h2>Goals</h2>
+          <ul>
+            <li>learn how to invoke C code from Rust</li>
+            <li>learn how to use C code safely</li>
+            <li>reason about in-memory representations</li>
+            <li>learn idiomatic Rust API techniques</li>
+          </ul>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+	  <h2>Rust Exercise Prerequisites</h2>
+          <ul>
+            <li>Rust compiler</li>
+            <li>C compiler</li>
+            <li>calling functions and methods</li>
+            <li>defining and using structures</li>
+            <li>implementing traits</li>
+            <li>iterating over values</li>
+          </ul>
+          <p>If you're uncertain about writing Rust code,
+            consider pairing with someone more experienced!</p>
+	  <footer class="footer"></footer>
+        </section>
+
+	<section class="slide">
+          <h2>The basics</h2>
+          <table>
+            <tr>
+              <th>lib.h</th>
+              <th>lib.rs</th>
+            </tr>
+            <tr>
+              <td>
+                <pre>
+                  <code>void init();</code>
+                </pre>
+              </td>
+              <td>
+                <pre>
+                  <code>extern "C" {</code>
+                  <code>    pub <strong>fn</strong> init();</code>
+                  <code>}</code>
+                </pre>
+              </td>
+            </tr>
+          </table>
+	  <footer class="footer"></footer>
+        </section>
+
+	<section class="slide">
+          <h2>Convention</h2>
+          <table>
+            <tr>
+              <th>
+                Unsafe, low-level bindings
+              </th>
+              <th>
+                Safe, high-level bindings
+              </th>
+            </tr>
+            <tr>
+              <td>
+                <pre>
+                  <code>mod ffi {</code>
+                  <code>    extern "C" {</code>
+                  <code>        <strong>fn</strong> init();</code>
+                  <code>    }</code>
+                  <code>}</code>
+                </pre>
+              </td>
+              <td>
+                <pre>
+                  <code>pub <strong>fn</strong> init() {</code>
+                  <code>    unsafe {</code>
+                  <code>        ffi::init();</code>
+                  <code>    }</code>
+                  <code>}</code>
+                </pre>
+              </td>
+            </tr>
+          </table>
+          <p>The goal: encapsulate unsafety behind safe API barrier.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+	<section class="slide">
+          <h2>Primitive C types</h2>
+          <p>Use the <code><a href="https://crates.io/crates/libc">libc</a></code> crate for maximum portability:</p>
+          <p><code>use libc::{c_void, c_char, c_short, c_uint, c_float};</code></p>
+          <p>Most primitive C types only require casting the equivalent Rust value.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>More C types</h2>
+          <table>
+            <tr>
+              <td>
+                <strong>lib.h</strong>
+                <pre>
+                  <code>void* accept_double_return_void_ptr(double d);</code>
+                </pre>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>lib.rs</strong>
+                <pre>
+                  <code>extern "C" {</code>
+                  <code>    <strong>fn</strong> accept_double_return_void_ptr(d: c_double)</code>
+                  <code>        -&gt; *const c_void;</code>
+                  <code>}</code>
+                </pre>
+              </td>
+            </tr>
+          </table>
+	  <footer class="footer"></footer>
+        </section>
+
+        <!-- TODO: add slide that shows calling accept_double_return_void_ptr
+             and using the result -->
+
+        <section class="slide">
+          <h2>C Strings</h2>
+          <p>Strings in C are null-terminated:</p>
+          <code>const char* s = "Rust Belt Rust";</code>
+          <div class="memory">
+            0x8000 = <span>R</span><span>u</span><span>s</span><span>t</span><br>
+            0x8004 = <span>&nbsp;</span><span>B</span><span>e</span><span>l</span><br>
+            0x8008 = <span>t</span><span>&nbsp;</span><span>R</span><span>u</span><br>
+            0x800D = <span>s</span><span>t</span><span>0</span><span>&nbsp;</span>
+          </div>
+	  <footer class="footer"></footer>
+          <style>
+            .memory {
+                font-family: monospace;
+            }
+            .memory span {
+                border: 1px black solid;
+            }
+          </style>
+        </section>
+
+        <section class="slide">
+          <h2>Rust Strings</h2>
+          <p>Strings in Rust are more complicated:</p>
+          <code>let s = &amp;"Rust Belt Rust";</code>
+          <table>
+            <tr>
+              <td>
+                <div class="memory">
+                  0x8000 = <span>0x9000</span><br>
+                  0x8004 = <span>14</span><br>
+                  0x9000 = <span>R</span><span>u</span><span>s</span><span>t</span><br>
+                  0x9004 = <span>&nbsp;</span><span>B</span><span>e</span><span>l</span><br>
+                  0x9008 = <span>t</span><span>&nbsp;</span><span>R</span><span>u</span><br>
+                  0x900D = <span>s</span><span>t</span><span>.</span><span>.</span>
+                </div>
+              </td>
+              <td>
+                <pre>
+                  <code><strong>struct</strong> StringSlice {</code>
+                  <code>    data: *const u8,</code>
+                  <code>    len: usize,</code>
+                  <code>}</code>
+                </pre>
+                <p>No null terminator in memory.</p>
+              </td>
+            </tr>
+          </table>
+	  <footer class="footer"></footer>
+          <style>
+          </style>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust</h2>
+          <pre>
+            <code class="comment">// Panic if string contains a null byte</code>
+            <code>let s = CString::new("Rust Belt Rust").unwrap();</code>
+          </pre>
+          <p>Allocates enough memory for string contents + null terminator.</p>
+          <p>Use <code><a href="https://doc.rust-lang.org/std/ffi/struct.CString.html#method.as_ptr">s.as_ptr()</a></code> to pass a pointer to C functions.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust</h2>
+          <pre>
+            <code>let s = CString::new("Rust Belt Rust").unwrap();</code>
+            <code>let s_ptr = s.as_ptr();</code>
+            <code>unsafe {</code>
+            <code>    ffi::puts(s_ptr);</code>
+            <code>}</code>
+          </pre>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust</h2>
+          <pre>
+            <code>let s = CString::new("Rust Belt Rust").unwrap();</code>
+            <code>let s_ptr = s.as_ptr();</code>
+            <code>drop(s);</code>
+            <code>unsafe {</code>
+            <code>    ffi::puts(s_ptr);</code>
+            <code>}</code>
+          </pre>
+          <p><strong>Warning:</strong> pointer is invalid after destruction.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust</h2>
+          <p>This is safe:
+          <pre>
+            <code>unsafe {</code>
+            <code>    ffi::puts(CString::new("Rust!").unwrap().as_ptr());</code>
+            <code>}</code>
+          </pre>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust</h2>
+          <p>But this is not:</p>
+          <pre>
+            <code>unsafe {</code>
+            <code>    let s = CString::new("Rust!").unwrap().as_ptr();</code>
+            <code>    ffi::puts(s);</code>
+            <code>}</code>
+          </pre>
+          <p>Temporary values only last as long as the expression context.
+            As function arguments, that is the duration of the call.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>String literals</h2>
+          <p>Sometimes you need static strings, or worry-free literals.</p>
+          <pre>
+            <code>unsafe {</code>
+            <code>    ffi::puts(b"Rust Belt Rust\0");</code>
+            <code>}</code>
+          </pre>
+          <p>The type of a <em>byte string</em> is <code>&[u8]</code>.</p>
+          <p><strong>Warning:</strong> it's easy to forget the null-terminator.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust (redux)</h2>
+          <p><code><a href="https://doc.rust-lang.org/std/ffi/struct.CString.html">CString</a></code> is for Rust-&gt;C. For C-&gt;Rust, we need <code><a href="https://doc.rust-lang.org/std/ffi/struct.CStr.html">CStr</a></code>.</p>
+          <pre>
+            <code>unsafe {</code>
+            <code>    let s_ptr: *const c_char = ffi::getenv(b"PATH\0");</code>
+            <code>    let s: &amp;CStr = CStr::from_ptr(s_ptr);</code>
+            <code>}</code>
+          </pre>
+          <p><strong>Warning:</strong> pointer has no meaningful lifetime.</p>
+          <p>Either copy the value or use it with caution.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C Strings in Rust (redux)</h2>
+          <p>Copying the value from a CStr into a Rust string is straightforward:</p>
+          <pre>
+            <code>unsafe {</code>
+            <code>    let s_ptr: *const c_char = ffi::getenv(b"PATH\0");</code>
+            <code>    let s: &amp;CStr = CStr::from_ptr(s_ptr);</code>
+            <code>    let s: &str = s.to_str().unwrap();</code>
+            <code>    let s: String = s.to_owned();</code>
+            <code>}</code>
+          </pre>
+          <p><code><a href="https://doc.rust-lang.org/std/ffi/struct.CStr.html#method.to_string_lossy">CStr::to_str_lossy()</a></code> can avoid the intermediate Result.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Vectors and C</h2>
+          <p>C APIs often deal with pointers and explicit length values.</p>
+          <table>
+            <tr>
+              <td>
+                <strong>lib.h</strong>
+                <pre>
+                  <code>void fill_int_buffer(int* buf, uint n);</code>
+                </pre>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>lib.rs</strong>
+                <pre>
+                  <code>extern "C" {</code>
+                  <code>    <strong>fn</strong> fill_int_buffer(buf: *mut c_int, n: c_uint);</code>
+                  <code>}</code>
+                </pre>
+              </td>
+            </tr>
+          </table>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Vectors and C</h2>
+          <p>Extracting these from Rust slices is straightforward:</p>
+          <pre>
+            <code>let ints = &amp;mut [0, 0, 0, 0];</code>
+            <code>unsafe {</code>
+            <code>    ffi::fill_int_buffer(ints.as_mut_ptr(),</code>
+            <code>                         ints.len() as c_uint);</code>
+            <code>}</code>
+          </pre>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Dealing with pointers to pointers</h2>
+          <p>We can transform <code>Vec&lt;T&gt;</code>/<code>&amp;[T]</code> into <code>*const T</code> with <code>as_ptr()</code>.
+          <code>Vec&lt;Vec&lt;T&gt;&gt;</code>/<code>&amp;[&amp;[T]]</code> requires allocating an intermediate vector.</p>
+          <br>
+          <p>C APIs that accept pointers expect a pointer to contiguous memory.<br>
+            There is no contiguous memory containing inner pointers:</p>
+          <code>Vec&lt;Vec&lt;T&gt;&gt;</code> is different than <code>Vec&lt;*const T&gt;</code>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Dealing with pointers to pointers</h2>
+          <pre>
+            <code>let mut outer = vec![vec![1.0, 2.0], vec![3.0, 4.0]];</code>
+            <code>&nbsp;</code>
+            <code>let mut outer_c: Vec&lt;*mut c_float&gt; =</code>
+            <code>    outer.iter_mut()</code>
+            <code>         .map(|inner| inner.as_mut_ptr())</code>
+            <code>         .collect()</code>
+            <code>unsafe {</code>
+            <code>    scale_2x2_matrix(outer_c.as_mut_ptr(), 2.0);</code>
+            <code>}</code>
+          </pre>
+	  <footer class="footer"></footer>
+        </section>
+
+	<section class="slide">
+          <h2>Exercise #1</h2>
+          <ol>
+            <li><code>cd exercise1; cargo build && cargo test</code></li>
+            <li>Given <code>src/library.h</code>, fill in the <code>ffi</code> module in <code>src/lib.rs</code></li>
+            <li>Add safe bindings to <code>src/lib.rs</code> that wrap the FFI functions</li>
+          </ol>
+          <p>The safe bindings should accept Rust types as arguments and convert them
+            as appropriate in order to invoke FFI functions.</p>
+          <p>See hints in comments; see working code in <code>src/solution.rs</code>.
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Exercise #1 discussion</h2>
+          <ul>
+            <li>Should the safe Rust bindings accept String? &amp;str? AsRef&lt;str&gt;?</li>
+            <li>Should print/print_many return Result values?</li>
+            <!--<li>An option for safety - make set_print_prefix only accept <code>&'static str</code>.</li>-->
+            <li>What types could <code>get_library_version</code> safely return?<br> &amp;CStr? &amp;str? String?</li>
+          </ul>
+          <p>Next on the agenda - complex types!</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>C structures</h2>
+          <p>C structures require very little modification for use with FFI.</p>
+          <table class="dual">
+            <tr>
+              <th>lib.h</th>
+              <th>lib.rs</th>
+            </tr>
+            <tr>
+              <td>
+                <br>
+                <pre>
+                  <code><strong>struct</strong> image_t {</code>
+                  <code>    unsigned char* pixels;</code>
+                  <code>    unsigned int width;</code>
+                  <code>    unsigned int height;</code>
+                  <code>};</code>
+                </pre>
+              </td>
+              <td>
+                <pre>
+                  <code>#[repr(C)]</code>
+                  <code><strong>struct</strong> image_t {</code>
+                  <code>    pixels: *mut c_uchar,</code>
+                  <code>    width: c_uint,</code>
+                  <code>    height: c_uint,</code>
+                  <code>}</code>
+                </pre>
+              </td>
+            </tr>
+          </table>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Opaque C structures</h2>
+          <p>Sometimes C headers only provide forward declarations as part of APIs.</p>
+          <pre>
+            <code><strong>struct</strong> image_t;</code>
+            <code>&nbsp;</code>
+            <code><strong>struct</strong> image_t* image_create();</code>
+            <code>unsigned int image_get_width(<strong>struct</strong> image_t*);</code>
+            <code>unsigned int image_get_height(<strong>struct</strong> image_t*);</code>
+          </pre>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Opaque C structures (cont.)</h2>
+          <p>This does not pose a problem for Rust bindings:</p>
+          <pre>
+            <code><strong>struct</strong> image_t(c_void);</code>
+            <code>extern "C" {</code>
+            <code>    <strong>fn</strong> image_create() -&gt; *mut image_t;</code>
+            <code>    <strong>fn</strong> image_get_width(image: *const image_t) -&gt; c_uint;</code>
+            <code>    <strong>fn</strong> image_get_height(image: *const image_t) -&gt; c_uint;</code>
+            <code>}</code>
+          </pre>
+          <p>Like C library users, these values cannot be constructed by Rust code.</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing memory for C types</h2>
+          <p>If a C API provides construction and deletion functions, this maps nicely to Rust's unique ownership model.</p>
+          <pre>
+            <code><strong>struct</strong> image_t;</code>
+            <code><strong>struct</strong> image_t* image_create(unsigned int w,</code>
+            <code>                             unsigned int h);</code>
+            <code>void image_free(<strong>struct</strong> image_t* image);</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing memory for C types (cont.)</h2>
+          <p>The low level types are unsurprising:</p>
+          <pre>
+            <code><strong>struct</strong> image_t(c_void);</code>
+            <code>extern "C" {</code>
+            <code>    <strong>fn</strong> image_create(w: c_uint, h: c_uint) -&gt; *mut image_t;</code>
+            <code>    <strong>fn</strong> image_free(image: *mut image_t);</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing memory for C types (cont.)</h2>
+          <p>We can encapsulate low-level types in high-level wrappers:</p>
+          <pre>
+            <code><strong>struct</strong> Image {</code>
+            <code>    ptr: *mut image_t,</code>
+            <code>}</code>
+          </pre>
+          <p>There is no need to duplicate any state from the low-level type.<br>
+            The purpose of the wrapper is to mediate access to the unsafe pointer.</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing memory for C types (cont.)</h2>
+          <p>We can follow Rust construction idioms:</p>
+          <pre>
+            <code><strong>impl</strong> Image {</code>
+            <code>    pub <strong>fn</strong> new(w: usize, h: usize) -> Image {</code>
+            <code>        Image {</code>
+            <code>            ptr: unsafe { ffi::image_create(w, h) },</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+	<section class="slide">
+          <h2>Managing memory for C types (cont.)</h2>
+          <p>Let's ensure that the memory does not leak or get used unsafely:</p>
+          <pre>
+            <code><strong>impl</strong> Drop for Image {</code>
+            <code>    <strong>fn</strong> drop(&mut self) {</code>
+            <code>        unsafe {</code>
+            <code>            ffi::image_free(self.ptr);</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing memory for C types (cont.)</h2>
+          <p>We also need to wrap any related APIs that require raw pointers:</p>
+          <pre>
+            <code><strong>impl</strong> Image {</code>
+            <code>    pub <strong>fn</strong> width(&self) -&gt; usize {</code>
+            <code>        unsafe { ffi::image_get_width(self.ptr) }</code>
+            <code>    }</code>
+            <code>    pub <strong>fn</strong> height(&self) -&gt; usize {</code>
+            <code>        unsafe { ffi::image_get_height(self.ptr) }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing memory for C types (cont.)</h2>
+          <p>Beware of null pointers!</p>
+          <p>What if <code>image_create</code> can't allocate? Either:</p>
+          <ul>
+            <li>return <code>Option&lt;Image&gt;</code> from <code>Image::new</code>, or</li>
+            <li>assert that the pointer is non-null</li>
+          </ul>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing refcounted C types</h2>
+          <p>Some APIs define types that have shared instead of unique ownership:</p>
+          <pre>
+            <code><strong>struct</strong> image_t;</code>
+            <code><strong>struct</strong> image_t* image_create(unsigned int w,</code>
+            <code>                             unsigned int h);</code>
+            <code>void image_addref(<strong>struct</strong> image_t* image);</code>
+            <code>void image_release(<strong>struct</strong> image_t* image);</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing refcounted C types (cont.)</h2>
+          <p>The FFI declarations remain unsurprising:</p>
+          <pre>
+            <code><strong>struct</strong> image_t(c_void);</code>
+            <code>extern "C" {</code>
+            <code>    <strong>fn</strong> image_create(w: c_uint, h: c_uint) -&gt; *mut image_t;</code>
+            <code>    <strong>fn</strong> image_addref(image: *mut image_t);</code>
+            <code>    <strong>fn</strong> image_release(image: *mut image_t);</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing refcounted C types (cont.)</h2>
+          <p>Our constructor needs some care:</p>
+          <pre>
+            <code><strong>impl</strong> Image {</code>
+            <code>    pub <strong>fn</strong> new(w: usize, h: usize) -> Image {</code>
+            <code>        let ptr = unsafe { ffi::image_create(w, h) };</code>
+            <code>        unsafe { ffi::image_addref(ptr) };</code>
+            <code>        Image {</code>
+            <code>            ptr: ptr,</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+        
+        <section class="slide">
+          <h2>Managing refcounted C types (cont.)</h2>
+          <p>Our destructor looks very similar:</p>
+          <pre>
+            <code><strong>impl</strong> Drop for Image {</code>
+            <code>    <strong>fn</strong> drop(&mut self) {</code>
+            <code>        unsafe {</code>
+            <code>            ffi::image_release(self.ptr);</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Managing refcounted C types (cont.)</h2>
+          <p>And now something new - enabling shared ownership:</p>
+          <pre>
+            <code><strong>impl</strong> Clone for Image {</code>
+            <code>    <strong>fn</strong> clone(&self) -&gt; Image {</code>
+            <code>        unsafe { ffi::image_addref(self.ptr); }</code>
+            <code>        Image {</code>
+            <code>            ptr: self.ptr</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Summary</h2>
+          <p>Who is responsible for creating and destroying values?</p>
+          <p>Can those responsibilities be associated with Rust's lifetimes?</p>
+          <p>Keep unsafe pointers hidden behind safe interfaces.</p>
+          <footer class="footer"></footer>
+        </section>        
+
+        <section class="slide">
+          <h2>Exercise #2</h2>
+          <ol>
+            <li><code>cd exercise2; cargo build && cargo test</code></li>
+            <li>Given a <code>ffi</code> module in <code>src/lib.rs</code>, write safe wrappers for the
+              <code>string_t</code> and <code>slice_t</code> types.</li>
+            <li>Create a safe binding for the <code>substring</code> function. Provide a more
+              meaningful return type than int.</li>
+            <!--<li>Try making the binding for <code>string_create</code> as generic as possible by using the <code><a href="https://doc.rust-lang.org/core/convert/trait.AsRef.html">AsRef</a></code> trait</li>-->
+          </ol>
+          <p>See hints in comments; see working code in <code>src/solution.rs</code>.
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Exercise #2 discussion</h2>
+          <ul>
+            <!--<li>Is it possible for a <code>slice_t</code> value to outlive its original string? Is that safe? How could it be prevented?</li>-->
+            <li>Is the Rust API for <code>substring</code> more ergonomic than the C one?</li>
+            <li>Are null slice pointers handled appropriately?</li>
+            <li>Can string values be cloned?</li>
+            <!--<li>How could we make the <code>string_slice</code> API fool-proof?</li>-->
+          </ul>
+          <p>Next up - allocation and iteration!</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Allocation Rule of Thumb</h2>
+          <p>Don't let C code free memory allocated by Rust.<br>
+            Be careful when freeing memory allocated by C.</p>
+          <p>Allocator mismatch errors are frustrating.</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Long-term loans from Rust-&gt;C</h2>
+          <p>So far we've only lent memory to C within a single stack frame.<br>
+            Longer loans need well-defined endpoints for reclaiming the memory.</p>
+          <p>For strings:<br>
+            <code><a href="https://doc.rust-lang.org/std/ffi/struct.CString.html#method.into_raw">CString::into_raw</a></code> pairs with <code><a href="https://doc.rust-lang.org/std/ffi/struct.CString.html#method.from_raw">CString::from_raw</a></code></p>
+          <p>For arbitrary values:<br>
+            <code><a href="https://doc.rust-lang.org/std/boxed/struct.Box.html#method.into_raw">Box::into_raw</a></code> matches <code><a href="https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw">Box::from_raw</a></code></p>
+          <p>These will leak memory if used unevenly!</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Long-term loans from Rust-&gt;C</h2>
+          <pre>
+            <code class="comment">// Set the prefix that will be added to any subsequent</code>
+            <code class="comment">// prints. The string will be copied for internal use.</code>
+            <code>void set_print_prefix(const char* prefix);</code>
+          </pre>
+          <p>versus</p>
+          <pre>
+            <code class="comment">// Set the prefix that will be added to any subsequent</code>
+            <code class="comment">// prints. String must remain valid during all prints.</code>
+            <code>void set_print_prefix(const char* prefix);</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Long-term loans from Rust-&gt;C</h2>
+          <p>This implementation for <code>set_print_prefix</code> only works if
+            the string is copied. Otherwise, the pointer is invalid after returning.</p>
+          <pre>
+            <code><strong>pub fn</strong> set_print_prefix(prefix: &amp;str) {</code>
+            <code>    let s = CString::new(prefix).unwrap();</code>
+            <code>    <strong>unsafe</strong> {</code>
+            <code>        ffi::set_print_prefix(s.as_ptr());</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Long-term loans from Rust-&gt;C</h2>
+          <p>Solution: transfer ownership using <code>into_raw</code> and
+            <code>from_raw</code></p>
+          <pre>
+            <code>let s = CString::new("Rust Belt Rust").unwrap();</code>
+            <code>unsafe {</code>
+            <code>    ffi::set_print_prefix(s.into_raw());</code>
+            <code>}</code>
+            <code>unsafe {</code>
+            <code>    let _s = CString::from_raw(ffi::get_print_prefix());</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Rust iterators</h2>
+          <p>At its core, Rust's support for iteration rests on two things.</p>
+          <p>The <code><a href="https://doc.rust-lang.org/std/iter/index.html#iterator">Iterator</a></code> trait:</p>
+          <pre>
+            <code>trait Iterator {</code>
+            <code>    type Item;</code>
+            <code>    <strong>fn</strong> next(&mut self) -&gt; Option&lt;Self::Item&gt;;</code>
+            <code>}</code>
+          </pre>
+          <p>This defines a protocol which declares the type of item returned, and how to obtain the next item.</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Rust iterators (cont.)</h2>
+          <p>The other important ingredient is that iterator types typically borrow the
+            value being iterated, to prevent it from being modified or destroyed.</p>
+          <pre>
+            <code><strong>struct</strong> MatrixIterator&lt;'a&gt; {</code>
+            <code>    matrix: &'a Matrix,</code>
+            <code>    index: usize,</code>
+            <code>}</code>
+          </pre>
+          <p>Iterators retain all state necessary to obtain the next item when requested.</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Rust iterators (cont.)</h2>
+          <p>An iterator type implements the <code>Iterator</code> trait:</p>
+          <pre>
+            <code><strong>impl</strong>&lt;'a&gt; Iterator for MatrixIterator&lt;'a&gt; {</code>
+            <code>    type Item = f32;</code>
+            <code>    <strong>fn</strong> next(&mut self) -&gt; Option&lt;f32&gt; {</code>
+            <code>        self.index += 1;</code>
+            <code>        match (self.index - 1) {</code>
+            <code>            0 => Some(&self.matrix.m0),</code>
+            <code>            1 => Some(&self.matrix.m1),</code>
+            <code>            _ => None</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Rust iterators (cont.)</h2>
+          <p>Finally some other code constructs an iterator value:</p>
+          <pre>
+            <code><strong>impl</strong> Matrix {</code>
+            <code>    pub <strong>fn</strong> iter(&self) -&gt; MatrixIterator {</code>
+            <code>        MatrixIterator {</code>
+            <code>            matrix: self,</code>
+            <code>            idx: 0,</code>
+            <code>        }</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Rust iterators (cont.)</h2>
+          <p>Suddenly it Just Works:</p>
+          <pre>
+            <code><strong>for</strong> val <strong>in</strong> matrix.iter().map(|v| v * 2) {</code>
+            <code>    println!("{}", val);</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+        
+        <section class="slide">
+          <h2>Exercise #3</h2>
+          <ol>
+            <li><code>cd exercise3; cargo build && cargo test</code></li>
+            <li>Given a <code>ffi</code> module in <code>src/lib.rs</code>, a write safe wrapper for the
+              <code>query_result_t</code> type.</li>
+            <li>Create an iterator implementation that enables iterating over the results in a result set in order.</li>
+            <li>Transfer ownership of a string to the <code>query_result_t</code> type and back.</li>
+          </ol>
+          <p>See hints in comments; see working code in <code>src/solution.rs</code>.
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Exercise #3 discussion</h2>
+          <ul>
+            <li>Is it possible for <code>get_nth_result</code> to be called without performing bounds checks?</li>
+            <li>Can the results iterator outlive the Results wrapper?</li>
+            <li>Does the query string passed to the result set constructor get returned to Rust and freed appropriately?</li>
+          </ul>
+          <p>Next up - calling from Rust -&gt; C -&gt; Rust!</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Function pointers</h2>
+          <p>Function pointers in Rust look similar to function declarations.</p>
+          <pre>
+            <code>fn div2(v: u32) -> f32 { v as f32 / 2.0 }</code>
+            <code>&nbsp;</code>
+            <code>let f: fn(u32) -> f32;</code>
+            <code>f = div2;</code>
+            <code>&nbsp;</code>
+            <code>assert!(f(5) == div2(5));</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Function pointers</h2>
+          <p>C callbacks are <a href="https://doc.rust-lang.org/nightly/book/functions.html#function-pointers">Rust function pointers</a> with more extern and unsafe.</p>
+          <table>
+            <tr>
+              <td>
+                <strong>lib.h</strong>
+                <pre>
+                  <code>typedef void* (*allocator_t)(unsigned int);</code>
+                  <code>void init(allocator_t allocator);</code>
+                </pre>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>lib.rs</strong>
+                <pre>
+                  <code>type allocator_t =</code>
+                  <code>    Option&lt;unsafe extern "C" <strong>fn</strong>(c_uint) -&gt; *mut c_void&gt;;</code>
+                  <code><strong>fn</strong> init(allocator: allocator_t);</code>
+                </pre>
+              </td>
+            </tr>
+          </table>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Function pointers</h2>
+          <pre>
+            <code>unsafe extern "C" null_allocator(_: c_uint) -&gt; *mut c_void {</code>
+            <code>    ptr::null_mut()</code>
+            <code>}</code>
+            <code>&nbsp;</code>
+            <code class="comment">// Pass a pointer to a Rust function,</code>
+            <code>ffi::init(Some(null_allocator));</code>
+            <code class="comment">// or a null pointer...</code>
+            <code>ffi::init(None);</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>Callbacks from C APIs will receive low-level arguments.
+            Our bindings need a translation layer.</p>
+          <p>There are two common mechanisms for this:</p>
+            <ul>
+              <li>attach private state to an existing callback argument</li>
+              <li>store global state that can be accessed in callbacks</li>
+            </ul>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>C API for per-context callback:</p>
+          <pre>
+            <code>void* context_get_private(<strong>struct</strong> context_t*);</code>
+            <code>void context_set_private(<strong>struct</strong> context_t*, void*);</code>
+            <code>&nbsp;</code>
+            <code><strong>typedef</strong> void (*operation_callback_t)(<strong>struct</strong> context_t*);</code>
+            <code>void context_set_callback(<strong>struct</strong> context_t*,</code>
+            <code>                          operation_callback_t);</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>Rust FFI declarations:</p>
+          <pre>
+            <code><strong>fn</strong> context_get_private(cx: *mut context_t) -&gt; *mut void;</code>
+            <code><strong>fn</strong> context_set_private(cx: *mut context_t, priv: *mut void);</code>
+            <code>&nbsp;</code>
+            <code><strong>type</strong> operation_callback_t =</code>
+            <code>    Option&lt;unsafe extern "C" (*mut context_t)&gt;;</code>
+            <code><strong>fn</strong> context_set_callback(cx: *mut context_t,</code>
+            <code>                        cb: operation_callback_t);</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>Associate high-level state with low-level data in the constructor:</p>
+          <pre>
+            <code><strong>struct</strong> ContextPrivate(u32);</code>
+            <code>&nbsp;</code>
+            <code>let cx = Context { ptr: unsafe { ffi::context_create() } };</code>
+            <code>let prv = Box::new(ContextPrivate(0));</code>
+            <code>unsafe {</code>
+            <code>    ffi::context_set_private(cx.ptr,</code>
+            <code>                             Box::into_raw(prv))</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>Invoke high-level callbacks with high-level state:</p>
+          <pre>
+            <code>unsafe extern "C" <strong>fn</strong> callback(cx: *mut context_t) {</code>
+            <code>    let p = context_get_private(cx) as *mut ContextPrivate;</code>
+            <code>    rust_callback(&mut *p);</code>
+            <code>}</code>
+            <code>&nbsp;</code>
+            <code>unsafe {</code>
+            <code>    ffi::context_set_callback(cx.ptr, callback)</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>High level callback (no hint of unsafety):</p>
+          <pre>
+            <code><strong>struct</strong> ContextPrivate(u32);</code>
+            <code>&nbsp;</code>
+            <code><strong>fn</strong> rust_callback(data: &mut ContextPrivate) {</code>
+            <code class="comment">    // Count the number of times invoked</code>
+            <code>    data.0 += 1;</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>High-level callbacks</h2>
+          <p>Clean up in the associated destructor:</p>
+          <pre>
+            <code><strong>impl</strong> Drop <strong>for</strong> Context {</code>
+            <code>    <strong>fn</strong> drop(&mut self) {</code>
+            <code>        let p = unsafe { context_get_private(self.ptr) };</code>
+            <code>        let _ = unsafe { Box::from_raw(p) };</code>
+            <code>        ...</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Using closures as function pointers</h2>
+          <p>Sometimes more dynamic function pointers are desirable.</p>
+          <p>Closure types in Rust are two pointers (function + environment),
+            so we cannot just use them in place of C function pointers.</p>
+          <p>We can build on the previous pattern to enable high-level APIs
+            that run closures when C callbacks are invoked.</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Using closures as function pointers</h2>
+          <p>Storing closure trait objects in the private data
+            allows subsequent execution:</p>
+          <pre>
+            <code><strong>type</strong> OperationCallback = Box&lt;<Strong>Fn</Strong>Mut(&mut ContextState)&gt;;</code>
+            <code>&nbsp;</code>
+            <code><strong>struct</strong> ContextState(u32);</code>
+            <code>&nbsp;</code>
+            <code><strong>struct</strong> ContextPrivate {</code>
+            <code>    operation: OperationCallback,</code>
+            <code>    state: ContextState,</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Using closures as function pointers</h2>
+          <p>Some careful partitioning of the members of the private state may
+            be necessary to satisfy the borrow checker:</p>
+          <pre>
+            <code>unsafe extern "C" <strong>fn</strong> callback(cx: *mut context_t) {</code>
+            <code>    let p = context_get_private(cx) as *mut ContextPrivate;</code>
+            <code>    let p = &mut *p;</code>
+            <code>    (p.operation)(&mut p.state);</code>
+            <code>}</code>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Upgrading low-level types</h2>
+          <p>One issue that crops up in callbacks is how to deal with passing
+            arguments down to high-level callbacks.</p>
+          <p><code>unsafe extern "C" <strong>fn</strong> callback(cx: *mut context_t)</code><br>
+            <code>type OperationCallback = Box&lt;<Strong>Fn</Strong>Mut(&mut Context)&gt;;</code></p>
+          <p>If <code>Context</code> is a Rust type with unique ownership semantics,
+            it is not safe to synthesize an instance for the duration of the callback.</p>
+          <p>What we really need is to borrow the high-level type for the callback, but
+            it may not be reachable from the callback's code.</p>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Upgrading low-level types</h2>
+          <p>Let's split <code>Context</code> type into <code>OwnedContext</code>
+            and <code>BorrowedContext</code></p>
+          <pre>
+            <code class="comment">// Responsible for APIs that cannot destroy this context.</code>
+            <code><strong>struct</strong> BorrowedContext { ptr: *mut ffi::context_t }</code>
+            <code>&nbsp;</code>
+            <code class="comment">// Responsible only for APIs that destroy this context.</code>
+            <code><strong>struct</strong> OwnedContext { cx: BorrowedContext }</code>
+          </pre>
+          <p>There is a clear similarity to <code>Vec&lt;T&gt;</code>/<code>[T]</code>, <code>String</code>/<code>str</code>, <code>T</code>/<code>&amp;T</code>...
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Upgrading low-level types</h2>
+          <p>To minimize friction, we can delegate <code>OwnedContext</code> to <code>BorrowedContext</code> as approprate:</p>
+          <pre>
+            <code><strong>impl</strong> Deref for OwnedContext {</code>
+            <code>    type Target = BorrowedContext;</code>
+            <code>    <strong>fn</strong> deref(&self) -&gt; &BorrowedContext {</code>
+            <code>        &self.cx</code>
+            <code>    }</code>
+            <code>}</code>
+          </pre>
+          <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Exercise #4</h2>
+          <ol>
+            <li><code>cd exercise4; cargo build && cargo test</code></li>
+            <li>Given a <code>ffi</code> module in <code>src/lib.rs</code>, write a safe wrapper for
+              <code>logger_t</code>.</li>
+            <li>Initialize the high-level wrapper with data that is used to make decisions in the
+              logging callback.</li>
+            <li>Use the finalizer callback to perform any clean up necessary.</li>
+            <!--<li>Consider a higher-level printing hook that returns more meaningful types instead of integer values.</li>-->
+          </ol>
+          <p>See hints in comments; see working code in <code>src/solution.rs</code>.
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Exercise #4 discussion</h2>
+          <ol>
+            <li>How would the high level API design change if the logger's print hook invoked
+              a closure?</li>
+            <li>Does the API support not setting callbacks?</li>
+            <li>Could a logger instance store copies of the logged messages?</li>
+          </ol>
+          <p>Next up - the end!</p>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide">
+          <h2>Further resources</h2>
+          <ul>
+            <li><a href="https://scribbles.pascalhertleif.de/elegant-apis-in-rust.html">Elegant APIs in Rust</a></li>
+            <li><a href="https://doc.rust-lang.org/nomicon/README.html">The Rustonomicon</a></li>
+          </ul>
+	  <footer class="footer"></footer>
+        </section>
+
+        <section class="slide" id="thanks">
+          <h2>Thanks</h2>
+          <img src="pictures/mozillaoverview/redpanda.jpg" class="place right" alt="Red panda (Firefox)">
+          <ul class="nobull">
+            <li><strong>Josh Matthews</strong></li>
+            <li>Engagement Whip at Mozilla</li>
+            <li><a href="http://twitter.com/lastontheboat">@lastontheboat</a></li><br>
+            <!--<li><strong>Slides</strong>:<br> http://joshmatthews.net/oscon16/</li>-->
+          </ul>
+          <small class="credits">
+            <a href="http://www.flickr.com/photos/yortw/5798336827/">Photo by Yortw</a>
+          </small>
+          <style>
+            ul.nobull li::before { 
+                content: '';
+            }
+            ul.nobull {
+                margin-bottom: 0;
+            }
+          </style>
+        </section>
+	<!--<p class="badge">
+		<a href="https://github.com/shower/shower">Fork me on GitHub</a>
+	</p>-->
+	<!--
+		To hide progress bar from entire presentation
+		just remove “progress” element.
+		-->
+	<div class="progress"></div>
+	<script src="shower/shower.min.js"></script>
+	<!-- Copyright © 2015 Yours Truly, Famous Inc. -->
+	<!-- Photos by John Carey, fiftyfootshadows.net -->
+</body>
+</html>
